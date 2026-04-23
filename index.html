@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAG Auto Sales — Deal Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  :root{--bg:#0f0f0f;--bg2:#181818;--bg3:#222;--bg4:#2a2a2a;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);--text:#f0f0f0;--text2:#a0a0a0;--text3:#606060;--accent:#00d084;--accent2:#00a866;--amber:#f5a623;--blue:#4a9eff;--red:#ff5252;--purple:#a78bfa;--radius:10px;--radius-lg:14px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+  .app{max-width:1020px;margin:0 auto;padding:20px 16px;}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:0.5px solid var(--border);flex-wrap:wrap;gap:12px;}
+  .header-left h1{font-size:19px;font-weight:600;letter-spacing:-0.3px;}
+  .header-left p{font-size:12px;color:var(--text2);margin-top:2px;}
+  .header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .month-switcher{display:flex;align-items:center;gap:6px;}
+  .month-nav{background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius);width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:15px;transition:all 0.15s;user-select:none;}
+  .month-nav:hover{color:var(--text);border-color:var(--accent);}
+  .month-display{background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius);padding:5px 12px;font-size:12px;font-weight:500;font-family:'DM Mono',monospace;min-width:140px;text-align:center;transition:all 0.2s;}
+  .month-display.current{color:var(--accent);border-color:var(--accent);}
+  .month-display.past{color:var(--text2);}
+  .sync-btn{background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius);padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;transition:all 0.15s;}
+  .sync-btn:hover{color:var(--text);border-color:var(--accent);}
+  .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:background 0.3s;}
+  .sync-dot.synced{background:var(--accent);}
+  .sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite;}
+  .sync-dot.error{background:var(--red);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .tab-bar{display:flex;gap:4px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:4px;margin-bottom:20px;overflow-x:auto;}
+  .tab{flex:1;padding:8px 6px;font-size:12px;font-weight:500;text-align:center;border:none;background:transparent;color:var(--text2);cursor:pointer;border-radius:7px;transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+  .tab.active{background:var(--bg4);color:var(--text);border:0.5px solid var(--border2);}
+  .tab:hover:not(.active){color:var(--text);}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .metric{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px 15px;}
+  .metric.hl{border-color:var(--accent);background:rgba(0,208,132,0.05);}
+  .mlabel{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;font-weight:500;}
+  .mval{font-size:23px;font-weight:600;letter-spacing:-0.5px;font-family:'DM Mono',monospace;}
+  .mval.g{color:var(--accent);}.mval.a{color:var(--amber);}.mval.b{color:var(--blue);}.mval.p{color:var(--purple);}
+  .msub{font-size:10px;color:var(--text3);margin-top:3px;}
+  .tier-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:15px 17px;margin-bottom:16px;}
+  .tier-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;}
+  .tier-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);}
+  .tier-pill{font-size:12px;font-weight:600;padding:3px 11px;border-radius:20px;font-family:'DM Mono',monospace;}
+  .t25{background:rgba(74,158,255,0.15);color:var(--blue);}.t30{background:rgba(245,166,35,0.15);color:var(--amber);}.t35{background:rgba(0,208,132,0.15);color:var(--accent);}
+  .tier-track{height:6px;background:var(--bg4);border-radius:3px;margin-bottom:7px;}
+  .tier-fill{height:6px;border-radius:3px;transition:width 0.4s ease;}
+  .tier-marks{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:8px;}
+  .tier-msg{font-size:12px;color:var(--text2);}
+  .tier-msg span{color:var(--text);font-weight:500;}
+  .alert{padding:10px 13px;border-radius:var(--radius);font-size:12px;margin-bottom:15px;display:flex;align-items:center;gap:9px;border:0.5px solid;}
+  .adot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .alert.s{background:rgba(0,208,132,0.08);border-color:rgba(0,208,132,0.3);color:#7fffd4;}
+  .alert.w{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.3);color:#ffd07a;}
+  .alert.i{background:rgba(74,158,255,0.08);border-color:rgba(74,158,255,0.3);color:#90c4ff;}
+  .alert.s .adot{background:var(--accent);}.alert.w .adot{background:var(--amber);}.alert.i .adot{background:var(--blue);}
+  .notice{background:rgba(245,166,35,0.06);border:0.5px solid rgba(245,166,35,0.2);border-radius:var(--radius);padding:8px 13px;font-size:12px;color:#ffd07a;margin-bottom:15px;}
+  .tcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;}
+  .thead{padding:11px 15px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .thead-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);}
+  .dcnt{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+  .twrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{padding:8px 11px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;background:var(--bg2);border-bottom:0.5px solid var(--border);}
+  td{padding:9px 11px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+  .badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;font-family:'DM Mono',monospace;white-space:nowrap;}
+  .bsolo{background:rgba(0,208,132,0.12);color:#7fffd4;}.bsplit{background:rgba(245,166,35,0.12);color:#ffd07a;}
+  .bfb{background:rgba(74,158,255,0.12);color:#90c4ff;}.bfloor{background:rgba(96,96,96,0.2);color:var(--text2);}
+  .bref{background:rgba(167,139,250,0.15);color:#c4b5fd;}.bou{background:rgba(245,166,35,0.1);color:#fbbf24;}
+  .bcl{background:rgba(255,82,82,0.1);color:#ff8080;}.both{background:rgba(96,96,96,0.2);color:var(--text2);}
+  .byes{background:rgba(0,208,132,0.12);color:#7fffd4;}.bno{background:rgba(96,96,96,0.15);color:var(--text3);}
+  .bfin{background:rgba(167,139,250,0.15);color:#c4b5fd;}.bpend{background:rgba(96,96,96,0.15);color:var(--text3);}
+  .empty{text-align:center;padding:32px;color:var(--text3);font-size:12px;}
+  .loading{text-align:center;padding:32px;color:var(--text3);font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .spin{width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .fcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:16px;}
+  .ftitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:14px;}
+  .fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;}
+  .fg{display:flex;flex-direction:column;gap:4px;}
+  .fg label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;}
+  .fg input,.fg select{background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 10px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;transition:border-color 0.15s;width:100%;}
+  .fg input:focus,.fg select:focus{outline:none;border-color:var(--accent);}
+  .fg select option{background:var(--bg3);}
+  .btn-add{width:100%;padding:11px;font-size:13px;font-weight:600;border:0.5px solid var(--accent2);border-radius:var(--radius);background:rgba(0,208,132,0.1);color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;margin-top:4px;}
+  .btn-add:hover{background:rgba(0,208,132,0.18);}
+  .btn-add:disabled{opacity:0.5;cursor:not-allowed;}
+  .del-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:3px 7px;border-radius:5px;transition:all 0.15s;}
+  .del-btn:hover{color:var(--red);background:rgba(255,82,82,0.1);}
+  .hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .hcard{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:13px 15px;cursor:pointer;transition:all 0.15s;}
+  .hcard:hover{border-color:var(--border2);}.hcard.hactive{border-color:var(--accent);background:rgba(0,208,132,0.05);}
+  .hmonth{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px;}
+  .hunits{font-size:19px;font-weight:600;font-family:'DM Mono',monospace;color:var(--text);}
+  .hearn{font-size:11px;color:var(--text3);margin-top:2px;font-family:'DM Mono',monospace;}
+  .cwrap{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;}
+  .ctitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:12px;}
+  .ccwrap{position:relative;width:100%;height:210px;}
+  .pm4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+  .rtbl{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+  .shdr{padding:11px 15px;border-bottom:0.5px solid var(--border);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);}
+  .hit{color:var(--accent);font-weight:600;}
+  .mono{font-family:'DM Mono',monospace;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg4);border:0.5px solid var(--border2);border-radius:var(--radius);padding:10px 18px;font-size:12px;color:var(--text);z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
+  .toast.show{opacity:1;}.toast.ok{border-color:rgba(0,208,132,0.4);color:#7fffd4;}.toast.err{border-color:rgba(255,82,82,0.4);color:#ff8080;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .modal{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:20px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+  .modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .modal-title{font-size:13px;font-weight:600;}
+  .modal-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;font-family:'DM Sans',sans-serif;}
+  .modal-close:hover{color:var(--text);}
+  .btn-save{width:100%;padding:11px;font-size:13px;font-weight:600;border:0.5px solid var(--accent2);border-radius:var(--radius);background:rgba(0,208,132,0.1);color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;margin-top:4px;}
+  .btn-save:hover{background:rgba(0,208,132,0.18);}
+  .btn-save:disabled{opacity:0.5;cursor:not-allowed;}
+  .edit-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 6px;border-radius:5px;transition:all 0.15s;}
+  .edit-btn:hover{color:var(--blue);background:rgba(74,158,255,0.1);}
+  @media(max-width:700px){.metrics,.pm4{grid-template-columns:repeat(2,1fr);}.fg3{grid-template-columns:1fr 1fr;}.hgrid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:480px){.fg2,.fg3{grid-template-columns:1fr;}.hgrid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <h1>SAG Auto Sales</h1>
+      <p>Deal Tracker — Edgar</p>
+    </div>
+    <div class="header-right">
+      <div class="sync-btn" onclick="syncNow()">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Sync</span>
+      </div>
+      <div class="month-switcher">
+        <div class="month-nav" onclick="changeMonth(-1)">&#8592;</div>
+        <div class="month-display" id="month-display">—</div>
+        <div class="month-nav" onclick="changeMonth(1)">&#8594;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab" onclick="switchTab('log')">Log Deal</button>
+    <button class="tab" onclick="switchTab('deals')">All Deals</button>
+    <button class="tab" onclick="switchTab('history')">History</button>
+    <button class="tab" onclick="switchTab('projections')">Projections</button>
+  </div>
+
+  <div id="tab-dashboard">
+    <div id="readonly-notice" style="display:none;" class="notice"></div>
+    <div id="alert-box"></div>
+    <div class="metrics" id="metrics-grid"></div>
+    <div class="tier-card">
+      <div class="tier-hdr">
+        <span class="tier-title">Commission tier</span>
+        <span class="tier-pill" id="tier-pill">25%</span>
+      </div>
+      <div class="tier-track"><div class="tier-fill" id="tier-fill"></div></div>
+      <div class="tier-marks"><span>0</span><span>15 units — 30%</span><span>20 units — 35%</span></div>
+      <div class="tier-msg" id="tier-msg"></div>
+    </div>
+    <div class="tcard">
+      <div class="thead">
+        <span class="thead-title" id="dash-title">Deals this month</span>
+        <span class="dcnt" id="deal-count-d">0 deals</span>
+      </div>
+      <div class="twrap">
+        <table><thead><tr><th>Customer</th><th>Vehicle</th><th>Type</th><th>Source</th><th>Status</th><th>My Gross</th><th>Commission</th><th></th></tr></thead>
+        <tbody id="tbody-dash"></tbody></table>
+        <div id="empty-dash" class="empty" style="display:none;">No deals for this month.</div>
+        <div id="loading-dash" class="loading"><div class="spin"></div>Loading from Google Sheets...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-log" style="display:none;">
+    <div id="log-locked" class="notice" style="display:none;">Viewing a past month — read only. <span style="cursor:pointer;text-decoration:underline;" onclick="goNow()">Go to current month</span> to add deals.</div>
+    <div id="log-form">
+      <div class="fcard">
+        <div class="ftitle">Add new deal</div>
+        <div class="fg2">
+          <div class="fg"><label>Customer name</label><input type="text" id="f-customer" placeholder="Last name"/></div>
+          <div class="fg"><label>Date</label><input type="date" id="f-date"/></div>
+        </div>
+        <div class="fg2">
+          <div class="fg"><label>Stock #</label><input type="text" id="f-stock" placeholder="B1409"/></div>
+          <div class="fg"><label>Deal #</label><input type="text" id="f-deal" placeholder="400615"/></div>
+        </div>
+        <div class="fg2">
+          <div class="fg"><label>Vehicle</label><input type="text" id="f-vehicle" placeholder="22 Tesla Model 3"/></div>
+          <div class="fg"><label>Front-end gross ($)</label><input type="number" id="f-gross" placeholder="0" min="0"/></div>
+        </div>
+        <div class="fg2">
+          <div class="fg">
+            <label>Deal type</label>
+            <select id="f-type" onchange="togglePartner()">
+              <option value="solo">Solo — full deal (1 unit)</option>
+              <option value="split">Split — half deal (0.5 units)</option>
+            </select>
+          </div>
+          <div class="fg" id="partner-grp" style="opacity:0.4">
+            <label>Split partner</label>
+            <input type="text" id="f-partner" placeholder="Partner name"/>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="fg">
+            <label>Lead source</label>
+            <select id="f-source">
+              <option value="floor">Floor / walk-in</option>
+              <option value="facebook">Facebook (+$250 bonus)</option>
+              <option value="offerup">OfferUp</option>
+              <option value="craigslist">Craigslist</option>
+              <option value="referral">Referral</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Extra spiff ($)</label>
+            <input type="number" id="f-spiff" placeholder="0" min="0"/>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="fg">
+            <label>Delivered?</label>
+            <select id="f-delivered"><option value="no">Not delivered</option><option value="yes">Delivered</option></select>
+          </div>
+          <div class="fg">
+            <label>Finalized?</label>
+            <select id="f-finalized"><option value="no">Not finalized</option><option value="yes">Finalized</option></select>
+          </div>
+        </div>
+        <div class="fg2">
+          <div class="fg">
+            <label>Trade in?</label>
+            <select id="f-trade" onchange="toggleTradeDetail()"><option value="no">No trade</option><option value="yes">Has trade</option></select>
+          </div>
+          <div class="fg" id="f-trade-detail-grp" style="opacity:0.4">
+            <label>Trade vehicle</label>
+            <input type="text" id="f-trade-detail" placeholder="2013 VW CC" disabled/>
+          </div>
+        </div>
+        <div class="fg" style="margin-bottom:12px;">
+          <label>Comments</label>
+          <input type="text" id="f-comments" placeholder="Notes, customer details..."/>
+        </div>
+        <button class="btn-add" id="btn-add" onclick="addDeal()">+ Log This Deal</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-deals" style="display:none;">
+    <div class="tcard">
+      <div class="thead">
+        <span class="thead-title" id="all-title">All deals</span>
+        <span class="dcnt" id="deal-count-l">0 deals</span>
+      </div>
+      <div class="twrap">
+        <table><thead><tr><th>Customer</th><th>Date</th><th>Vehicle</th><th>Stock</th><th>Type</th><th>Partner</th><th>Source</th><th>Del</th><th>Fin</th><th>Trade</th><th>Gross</th><th>Comm</th><th>Spiff</th><th>Notes</th><th></th></tr></thead>
+        <tbody id="tbody-log"></tbody></table>
+        <div id="empty-log" class="empty" style="display:none;">No deals for this month.</div>
+        <div id="loading-log" class="loading"><div class="spin"></div>Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-history" style="display:none;">
+    <div class="cwrap">
+      <div class="ctitle">Monthly earnings — last 12 months</div>
+      <div class="ccwrap"><canvas id="hist-chart" role="img" aria-label="Monthly take home earnings">Monthly earnings history.</canvas></div>
+    </div>
+    <div id="hgrid" class="hgrid"></div>
+  </div>
+
+  <div id="tab-projections" style="display:none;">
+    <div class="pm4" id="proj-metrics"></div>
+    <div class="cwrap">
+      <div class="ctitle">12-month true pocket projection</div>
+      <div class="ccwrap"><canvas id="proj-chart" role="img" aria-label="Projected monthly true pocket">Projected monthly income.</canvas></div>
+    </div>
+    <div class="rtbl">
+      <div class="shdr">Monthly roadmap — reinvesting up to $2,500/month</div>
+      <div class="twrap">
+        <table><thead><tr><th>Month</th><th>Ad $</th><th>Leads</th><th>Refs</th><th>Units</th><th>FB deals</th><th>Commission</th><th>FB bonus</th><th>Spiff</th><th>Take home</th><th>True pocket</th></tr></thead>
+        <tbody id="tbody-roadmap"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div id="edit-modal" style="display:none;" class="modal-overlay" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Edit Deal</span>
+      <button class="modal-close" onclick="closeEditModal()">×</button>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Customer name</label><input type="text" id="e-customer" placeholder="Last name"/></div>
+      <div class="fg"><label>Date</label><input type="date" id="e-date"/></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Stock #</label><input type="text" id="e-stock" placeholder="B1409"/></div>
+      <div class="fg"><label>Deal #</label><input type="text" id="e-deal" placeholder="400615"/></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Vehicle</label><input type="text" id="e-vehicle" placeholder="22 Tesla Model 3"/></div>
+      <div class="fg"><label>Front-end gross ($)</label><input type="number" id="e-gross" placeholder="0" min="0"/></div>
+    </div>
+    <div class="fg2">
+      <div class="fg">
+        <label>Deal type</label>
+        <select id="e-type" onchange="toggleEditPartner()">
+          <option value="solo">Solo — full deal (1 unit)</option>
+          <option value="split">Split — half deal (0.5 units)</option>
+        </select>
+      </div>
+      <div class="fg" id="e-partner-grp">
+        <label>Split partner</label>
+        <input type="text" id="e-partner" placeholder="Partner name"/>
+      </div>
+    </div>
+    <div class="fg2">
+      <div class="fg">
+        <label>Lead source</label>
+        <select id="e-source">
+          <option value="floor">Floor / walk-in</option>
+          <option value="facebook">Facebook (+$250 bonus)</option>
+          <option value="offerup">OfferUp</option>
+          <option value="craigslist">Craigslist</option>
+          <option value="referral">Referral</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Extra spiff ($)</label>
+        <input type="number" id="e-spiff" placeholder="0" min="0"/>
+      </div>
+    </div>
+    <div class="fg2">
+      <div class="fg">
+        <label>Delivered?</label>
+        <select id="e-delivered"><option value="no">Not delivered</option><option value="yes">Delivered</option></select>
+      </div>
+      <div class="fg">
+        <label>Finalized?</label>
+        <select id="e-finalized"><option value="no">Not finalized</option><option value="yes">Finalized</option></select>
+      </div>
+    </div>
+    <div class="fg2">
+      <div class="fg">
+        <label>Trade in?</label>
+        <select id="e-trade" onchange="toggleEditTradeDetail()"><option value="no">No trade</option><option value="yes">Has trade</option></select>
+      </div>
+      <div class="fg" id="e-trade-detail-grp" style="opacity:0.4">
+        <label>Trade vehicle</label>
+        <input type="text" id="e-trade-detail" placeholder="2013 VW CC"/>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label>Comments</label>
+      <input type="text" id="e-comments" placeholder="Notes, customer details..."/>
+    </div>
+    <button class="btn-save" id="btn-save" onclick="saveEdit()">Save Changes</button>
+  </div>
+</div>
+
+<script>
+const API='https://script.google.com/macros/s/AKfycbyYS3HUXtIvxLQOytI3ba6OE-ZvPH-ZcG5Tz7CJ6gHjEftgPDQTcztsjXCm3k-WLm8L/exec';
+const TIERS=[{min:0,rate:0.25,spiff:0},{min:15,rate:0.30,spiff:1000},{min:20,rate:0.35,spiff:2000}];
+const MIN_UNIT=250,FB_BONUS=250,TAX=0.28;
+const now=new Date();
+let vy=now.getFullYear(),vm=now.getMonth();
+let cache={};
+let syncing=false;
+
+function mkey(y,m){return y+'-'+String(m+1).padStart(2,'0');}
+function mname(y,m){return new Date(y,m,1).toLocaleString('default',{month:'long',year:'numeric'});}
+function mshort(y,m){return new Date(y,m,1).toLocaleString('default',{month:'short',year:'2-digit'});}
+function isCur(){return vy===now.getFullYear()&&vm===now.getMonth();}
+function vkey(){return mkey(vy,vm);}
+function vDeals(){return cache[vkey()]||[];}
+
+function setSyncState(s){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  dot.className='sync-dot '+s;
+  lbl.textContent=s==='syncing'?'Syncing...':s==='synced'?'Synced':s==='error'?'Offline':'Sync';
+}
+
+function showToast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+(type==='ok'?'ok':'err');
+  setTimeout(()=>t.className='toast',2500);
+}
+
+async function apiGet(params){
+  const url=API+'?'+new URLSearchParams(params).toString();
+  const res=await fetch(url);
+  const text=await res.text();
+  try{return JSON.parse(text);}catch(e){throw new Error('Invalid response: '+text.slice(0,100));}
+}
+
+async function loadMonth(key){
+  setSyncState('syncing');
+  try{
+    const r=await apiGet({action:'getDeals',monthKey:key});
+    if(r.deals){cache[key]=r.deals;setSyncState('synced');return r.deals;}
+    setSyncState('error');return cache[key]||[];
+  }catch(e){setSyncState('error');console.error(e);return cache[key]||[];}
+}
+
+async function syncNow(){
+  if(syncing)return;syncing=true;
+  showToast('Syncing with Google Sheets...');
+  await loadMonth(vkey());renderAll();syncing=false;
+  showToast('Synced','ok');
+}
+
+function changeMonth(dir){
+  vm+=dir;
+  if(vm>11){vm=0;vy++;}if(vm<0){vm=11;vy--;}
+  updateLabel();loadAndRender();
+}
+function goNow(){vy=now.getFullYear();vm=now.getMonth();updateLabel();loadAndRender();switchTab('log');}
+function jumpTo(y,m){vy=y;vm=m;updateLabel();loadAndRender();switchTab('dashboard');}
+
+async function loadAndRender(){
+  showLoadingState();await loadMonth(vkey());renderAll();
+}
+
+function showLoadingState(){
+  document.getElementById('loading-dash').style.display='flex';
+  document.getElementById('tbody-dash').innerHTML='';
+  document.getElementById('empty-dash').style.display='none';
+  document.getElementById('loading-log').style.display='flex';
+  document.getElementById('tbody-log').innerHTML='';
+  document.getElementById('empty-log').style.display='none';
+}
+
+function updateLabel(){
+  const el=document.getElementById('month-display');
+  el.textContent=mname(vy,vm);
+  el.className='month-display '+(isCur()?'current':'past');
+}
+
+function getTier(u){return[...TIERS].reverse().find(t=>u>=t.min)||TIERS[0];}
+function countU(deals){return deals.reduce((s,d)=>s+(d.type==='split'?0.5:1),0);}
+function getComm(d,tier){
+  const g=parseFloat(d.gross);
+  const full=Math.max(g*tier.rate,MIN_UNIT);
+  return d.type==='split'?full/2:full;
+}
+function calcT(deals){
+  const u=countU(deals),tier=getTier(u);
+  let comm=0,fb=0,sp=0;
+  deals.forEach(d=>{comm+=getComm(d,tier);if(d.source==='facebook')fb+=FB_BONUS;sp+=parseFloat(d.spiff||0);});
+  const gp=comm+tier.spiff+fb+sp;
+  return{u,tier,comm,mspiff:tier.spiff,fb,sp,gp,th:gp*(1-TAX)};
+}
+function fmt(n){return'$'+Math.round(n).toLocaleString();}
+function fd(n){return n%1===0?n.toString():n.toFixed(1);}
+function sbadge(s){const m={facebook:'bfb',floor:'bfloor',referral:'bref',offerup:'bou',craigslist:'bcl',other:'both'};return`<span class="badge ${m[s]||'both'}">${s}</span>`;}
+function ynb(v,y,n){return v==='yes'?`<span class="badge ${y}">yes</span>`:`<span class="badge ${n}">no</span>`;}
+
+function renderDashboard(){
+  const deals=vDeals(),t=calcT(deals),cur=isCur();
+  document.getElementById('loading-dash').style.display='none';
+  const rn=document.getElementById('readonly-notice');
+  rn.style.display=cur?'none':'block';
+  rn.innerHTML=cur?'':'Viewing <strong>'+mname(vy,vm)+'</strong> — past month, read only. <span style="cursor:pointer;text-decoration:underline;" onclick="goNow()">Go to current month</span>';
+  document.getElementById('dash-title').textContent='Deals — '+mname(vy,vm);
+  const fbD=deals.filter(d=>d.source==='facebook').length;
+  const fin=deals.filter(d=>d.finalized==='yes').length;
+  const del=deals.filter(d=>d.delivered==='yes').length;
+  document.getElementById('metrics-grid').innerHTML=`
+    <div class="metric hl"><div class="mlabel">Units counted</div><div class="mval g">${fd(t.u)}</div><div class="msub">${t.tier.rate*100}% tier active</div></div>
+    <div class="metric"><div class="mlabel">Take home</div><div class="mval g">${fmt(t.th)}</div><div class="msub">after ~28% tax</div></div>
+    <div class="metric"><div class="mlabel">Commission</div><div class="mval">${fmt(t.comm)}</div><div class="msub">+ ${fmt(t.mspiff)} spiff</div></div>
+    <div class="metric"><div class="mlabel">Facebook bonus</div><div class="mval b">${fmt(t.fb)}</div><div class="msub">${fbD} FB deal${fbD!==1?'s':''} × $250</div></div>
+    <div class="metric"><div class="mlabel">Delivered</div><div class="mval a">${del}</div><div class="msub">of ${deals.length} total</div></div>
+    <div class="metric"><div class="mlabel">Finalized</div><div class="mval p">${fin}</div><div class="msub">${deals.length-fin} pending</div></div>`;
+  const pct=Math.min((t.u/20)*100,100);
+  const fill=document.getElementById('tier-fill');
+  fill.style.width=pct+'%';
+  fill.style.background=t.u>=20?'#00d084':t.u>=15?'#f5a623':'#4a9eff';
+  const pill=document.getElementById('tier-pill');
+  pill.textContent=(t.tier.rate*100)+'%';
+  pill.className='tier-pill '+(t.u>=20?'t35':t.u>=15?'t30':'t25');
+  const msg=document.getElementById('tier-msg');
+  if(t.u>=20){msg.innerHTML='<span>35% tier</span> — max commission active.';}
+  else if(t.u>=15){const n=20-t.u;msg.innerHTML=`<span>${fd(n)} more unit${n!==1?'s':''}</span> to 35% + $2,000 spiff — retroactive.`;}
+  else{msg.innerHTML=`<span>${fd(15-t.u)}</span> to 30% + $1k &nbsp;|&nbsp; <span>${fd(20-t.u)}</span> to 35% + $2k spiff.`;}
+  const ab=document.getElementById('alert-box');
+  if(!cur){ab.innerHTML='';}
+  else if(t.u>=20){ab.innerHTML=`<div class="alert s"><div class="adot"></div>35% tier locked — ${fmt(t.th)} take home so far.</div>`;}
+  else if(t.u>=15){const n=fd(20-t.u);ab.innerHTML=`<div class="alert w"><div class="adot"></div>${n} more unit${n!=='1'?'s':''} hits 35% + $2,000 spiff.</div>`;}
+  else{ab.innerHTML=`<div class="alert i"><div class="adot"></div>${fd(15-t.u)} units to 30% tier and $1,000 spiff.</div>`;}
+  const tbody=document.getElementById('tbody-dash');
+  const empty=document.getElementById('empty-dash');
+  tbody.innerHTML='';
+  if(!deals.length){empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    deals.forEach(d=>{
+      const mg=d.type==='split'?parseFloat(d.gross)/2:parseFloat(d.gross);
+      const comm=getComm(d,t.tier);
+      const sc=d.finalized==='yes'?'bfin':d.delivered==='yes'?'byes':'bpend';
+      const sl=d.finalized==='yes'?'finalized':d.delivered==='yes'?'delivered':'pending';
+      const eb=cur?`<button class="edit-btn" title="Edit" onclick="openEditModal('${d.id}')">✎</button>`:'';
+      tbody.innerHTML+=`<tr><td>${d.customer}</td><td>${d.vehicle}</td><td><span class="badge ${d.type==='split'?'bsplit':'bsolo'}">${d.type==='split'?'½ split':'solo'}</span></td><td>${sbadge(d.source)}</td><td><span class="badge ${sc}">${sl}</span></td><td class="mono">${fmt(mg)}</td><td class="mono">${fmt(comm)}${d.source==='facebook'?' <span class="badge bfb">+$250</span>':''}</td><td>${eb}</td></tr>`;
+    });
+  }
+  document.getElementById('deal-count-d').textContent=deals.length+' deal'+(deals.length!==1?'s':'');
+}
+
+function renderLog(){
+  const cur=isCur();
+  document.getElementById('log-locked').style.display=cur?'none':'block';
+  document.getElementById('log-form').style.display=cur?'block':'none';
+  document.getElementById('loading-log').style.display='none';
+  const deals=vDeals(),t=calcT(deals);
+  const tbody=document.getElementById('tbody-log');
+  const empty=document.getElementById('empty-log');
+  tbody.innerHTML='';
+  document.getElementById('deal-count-l').textContent=deals.length+' deal'+(deals.length!==1?'s':'');
+  document.getElementById('all-title').textContent='All deals — '+mname(vy,vm);
+  if(!deals.length){empty.style.display='block';}
+  else{
+    empty.style.display='none';
+    deals.forEach((d,i)=>{
+      const comm=getComm(d,t.tier);
+      const eb=cur?`<button class="edit-btn" title="Edit" onclick="openEditModal('${d.id}')">✎</button>`:'';
+      const db=cur?`<button class="del-btn" onclick="removeDeal('${d.id}')">×</button>`:'';
+      tbody.innerHTML+=`<tr><td>${d.customer}</td><td class="mono" style="font-size:10px">${d.date||'—'}</td><td>${d.vehicle}</td><td class="mono" style="font-size:10px">${d.stock||'—'}</td><td><span class="badge ${d.type==='split'?'bsplit':'bsolo'}">${d.type==='split'?'½':'solo'}</span></td><td style="font-size:11px;color:var(--text2)">${d.partner||'—'}</td><td>${sbadge(d.source)}</td><td>${ynb(d.delivered,'byes','bno')}</td><td>${ynb(d.finalized,'bfin','bpend')}</td><td style="font-size:11px;color:var(--text2)">${d.trade&&d.trade!=='no'?d.trade:'—'}</td><td class="mono">${fmt(d.type==='split'?parseFloat(d.gross)/2:parseFloat(d.gross))}</td><td class="mono">${fmt(comm)}</td><td class="mono">${d.spiff&&parseFloat(d.spiff)>0?fmt(d.spiff):'—'}</td><td style="font-size:10px;color:var(--text2);max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.comments||'—'}</td><td style="white-space:nowrap">${eb}${db}</td></tr>`;
+    });
+  }
+}
+
+let hChart=null;
+async function renderHistory(){
+  const keys=[];
+  try{
+    const r=await apiGet({action:'getAllMonths'});
+    const months=(r.months||[]).sort();
+    for(const k of months){
+      const parts=k.split('-');
+      const y=parseInt(parts[0]),m=parseInt(parts[1])-1;
+      keys.push({y,m,k});
+      if(!cache[k]){
+        try{const rd=await apiGet({action:'getDeals',monthKey:k});cache[k]=rd.deals||[];}
+        catch(e){cache[k]=[];}
+      }
+    }
+  }catch(e){
+    for(let i=11;i>=0;i--){
+      let m=now.getMonth()-i,y=now.getFullYear();
+      while(m<0){m+=12;y--;}
+      const k=mkey(y,m);
+      keys.push({y,m,k});
+      if(!cache[k]){
+        try{const r=await apiGet({action:'getDeals',monthKey:k});cache[k]=r.deals||[];}
+        catch(e2){cache[k]=[];}
+      }
+    }
+  }
+  const labels=keys.map(x=>mshort(x.y,x.m));
+  const thData=keys.map(x=>Math.round(calcT(cache[x.k]||[]).th));
+  if(hChart)hChart.destroy();
+  hChart=new Chart(document.getElementById('hist-chart'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'Take home',data:thData,backgroundColor:keys.map(x=>x.k===vkey()?'#f5a623':'#00d084'),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $'+ctx.raw.toLocaleString(),title:ctx=>ctx[0].label+' take home'},backgroundColor:'#222',titleColor:'#a0a0a0',bodyColor:'#f0f0f0',borderColor:'#333',borderWidth:1}},scales:{y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#606060',font:{size:10,family:'DM Mono'}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},x:{ticks:{color:'#606060',font:{size:10,family:'DM Mono'}},grid:{display:false},border:{display:false}}}}
+  });
+  const grid=document.getElementById('hgrid');
+  grid.innerHTML='';
+  [...keys].reverse().forEach(x=>{
+    const t=calcT(cache[x.k]||[]);
+    grid.innerHTML+=`<div class="hcard ${x.k===vkey()?'hactive':''}" onclick="jumpTo(${x.y},${x.m})"><div class="hmonth">${mname(x.y,x.m)}</div><div class="hunits">${fd(t.u)} <span style="font-size:12px;color:var(--text3)">units</span></div><div class="hearn">${fmt(t.th)} take home</div></div>`;
+  });
+}
+
+let pChart=null;
+function renderProjections(){
+  const deals=vDeals(),t=calcT(deals);
+  const daysInM=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const pace=t.u/Math.max(now.getDate(),1);
+  const pu=Math.round(pace*daysInM*10)/10,pt=getTier(pu);
+  const ag=deals.length>0?deals.reduce((s,d)=>s+(d.type==='split'?parseFloat(d.gross)/2:parseFloat(d.gross)),0)/Math.max(t.u,1):800;
+  let pc=0;for(let i=0;i<Math.round(pu);i++)pc+=Math.max((ag||800)*pt.rate,MIN_UNIT);
+  const fr=deals.length>0?deals.filter(d=>d.source==='facebook').length/deals.length:0.5;
+  const pg=pc+pt.spiff+Math.round(pu*fr)*FB_BONUS;
+  document.getElementById('proj-metrics').innerHTML=`
+    <div class="metric"><div class="mlabel">Proj. units</div><div class="mval g">${fd(pu)}</div><div class="msub">current pace</div></div>
+    <div class="metric"><div class="mlabel">Proj. tier</div><div class="mval ${pu>=20?'g':pu>=15?'a':'b'}">${pt.rate*100}%</div><div class="msub">${pu>=20?'$2k spiff':pu>=15?'$1k spiff':'no spiff'}</div></div>
+    <div class="metric"><div class="mlabel">Proj. take home</div><div class="mval">${fmt(pg*(1-TAX))}</div><div class="msub">end of month</div></div>
+    <div class="metric"><div class="mlabel">Avg gross/deal</div><div class="mval">${fmt(ag||800)}</div><div class="msub">from logged deals</div></div>`;
+  const mnms=['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'];
+  const ads=[500,1000,1500,2000,2500,2500,2500,2500,2500,2500,2500,2500];
+  const rows=ads.map((sp,i)=>{
+    const al=Math.round(sp/12),ac=Math.round(al*0.40*0.75*0.35),refs=Math.round(i*1.8),tot=11+ac+refs,tier=getTier(tot);
+    let comm=0;for(let j=0;j<tot;j++)comm+=Math.max(800*tier.rate,MIN_UNIT);
+    const fbd=Math.round(ac*0.65),fbB=fbd*FB_BONUS,gr=comm+tier.spiff+fbB,tk=Math.round(gr*(1-TAX)),pk=tk-sp;
+    return{m:mnms[i],sp,al,refs,tot,fbd,comm:Math.round(comm),fbB,spiff:tier.spiff,tk,pk};
+  });
+  if(pChart)pChart.destroy();
+  pChart=new Chart(document.getElementById('proj-chart'),{
+    type:'bar',
+    data:{labels:rows.map(r=>r.m),datasets:[{label:'True pocket',data:rows.map(r=>r.pk),backgroundColor:rows.map(r=>r.pk>=10000?'#00d084':'#4a9eff'),borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' $'+ctx.raw.toLocaleString(),title:ctx=>ctx[0].label+' — true pocket'},backgroundColor:'#222',titleColor:'#a0a0a0',bodyColor:'#f0f0f0',borderColor:'#333',borderWidth:1}},scales:{y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#606060',font:{size:10,family:'DM Mono'}},grid:{color:'rgba(255,255,255,0.05)'},border:{display:false}},x:{ticks:{color:'#606060',font:{size:10,family:'DM Mono'}},grid:{display:false},border:{display:false}}}}
+  });
+  const tb=document.getElementById('tbody-roadmap');
+  tb.innerHTML='';
+  rows.forEach(r=>{
+    const h=r.pk>=10000;
+    tb.innerHTML+=`<tr><td class="mono" style="font-weight:${h?'600':'400'}">${r.m}</td><td class="mono">$${(r.sp/1000).toFixed(1)}k</td><td class="mono">${r.al}</td><td class="mono">${r.refs}</td><td class="mono ${h?'hit':''}">${r.tot}</td><td class="mono">${r.fbd}</td><td class="mono">${fmt(r.comm)}</td><td class="mono">${fmt(r.fbB)}</td><td class="mono">${fmt(r.spiff)}</td><td class="mono">${fmt(r.tk)}</td><td class="mono ${h?'hit':''}">${fmt(r.pk)}${h?' ✓':''}</td></tr>`;
+  });
+}
+
+async function addDeal(){
+  if(!isCur()){alert('Switch to current month to add deals.');return;}
+  const c=document.getElementById('f-customer').value.trim();
+  const v=document.getElementById('f-vehicle').value.trim();
+  if(!c||!v){alert('Customer name and vehicle required.');return;}
+  const btn=document.getElementById('btn-add');
+  btn.disabled=true;btn.textContent='Saving...';
+  const deal={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2),
+    customer:c,
+    date:document.getElementById('f-date').value,
+    stock:document.getElementById('f-stock').value.trim(),
+    dealNum:document.getElementById('f-deal').value.trim(),
+    vehicle:v,
+    gross:parseFloat(document.getElementById('f-gross').value)||0,
+    type:document.getElementById('f-type').value,
+    partner:document.getElementById('f-partner').value.trim(),
+    source:document.getElementById('f-source').value,
+    spiff:parseFloat(document.getElementById('f-spiff').value)||0,
+    delivered:document.getElementById('f-delivered').value,
+    finalized:document.getElementById('f-finalized').value,
+    trade:document.getElementById('f-trade').value==='yes'?(document.getElementById('f-trade-detail').value.trim()||'yes'):'no',
+    comments:document.getElementById('f-comments').value.trim(),
+    createdAt:new Date().toISOString()
+  };
+  try{
+    setSyncState('syncing');
+    const r=await apiGet({
+      action:'saveDeal',
+      monthKey:vkey(),
+      deal:encodeURIComponent(JSON.stringify(deal))
+    });
+    if(r.success){
+      if(!cache[vkey()])cache[vkey()]=[];
+      cache[vkey()].push(deal);
+      showToast('Deal saved to Google Sheets','ok');
+      setSyncState('synced');
+      ['f-customer','f-stock','f-deal','f-vehicle','f-partner','f-comments','f-trade-detail'].forEach(id=>document.getElementById(id).value='');
+      ['f-gross','f-spiff'].forEach(id=>document.getElementById(id).value='');
+      ['f-type','f-source','f-delivered','f-finalized','f-trade'].forEach((id,i)=>document.getElementById(id).value=['solo','floor','no','no','no'][i]);
+      toggleTradeDetail();
+      renderAll();switchTab('dashboard');
+    }else{
+      showToast('Error: '+(r.error||'unknown'),'err');
+      setSyncState('error');
+    }
+  }catch(e){
+    showToast('Network error — check connection','err');
+    setSyncState('error');
+    console.error(e);
+  }
+  btn.disabled=false;btn.textContent='+ Log This Deal';
+}
+
+async function removeDeal(id){
+  if(!isCur())return;
+  if(!confirm('Remove this deal?'))return;
+  setSyncState('syncing');
+  try{
+    const r=await apiGet({action:'deleteDeal',id,monthKey:vkey()});
+    if(r.success){
+      cache[vkey()]=(cache[vkey()]||[]).filter(d=>d.id!==id);
+      showToast('Deal removed','ok');setSyncState('synced');renderAll();
+    }else{showToast('Error removing deal','err');setSyncState('error');}
+  }catch(e){showToast('Network error','err');setSyncState('error');}
+}
+
+function togglePartner(){
+  document.getElementById('partner-grp').style.opacity=document.getElementById('f-type').value==='split'?'1':'0.4';
+}
+
+function toggleTradeDetail(){
+  const yes=document.getElementById('f-trade').value==='yes';
+  document.getElementById('f-trade-detail-grp').style.opacity=yes?'1':'0.4';
+  const inp=document.getElementById('f-trade-detail');
+  inp.disabled=!yes;
+  if(!yes)inp.value='';
+}
+
+function toggleEditTradeDetail(){
+  const yes=document.getElementById('e-trade').value==='yes';
+  document.getElementById('e-trade-detail-grp').style.opacity=yes?'1':'0.4';
+  if(!yes)document.getElementById('e-trade-detail').value='';
+}
+
+let editingId=null;
+
+function openEditModal(id){
+  if(!isCur())return;
+  const deal=(cache[vkey()]||[]).find(d=>d.id===id);
+  if(!deal)return;
+  editingId=id;
+  document.getElementById('e-customer').value=deal.customer||'';
+  document.getElementById('e-date').value=deal.date||'';
+  document.getElementById('e-stock').value=deal.stock||'';
+  document.getElementById('e-deal').value=deal.dealNum||'';
+  document.getElementById('e-vehicle').value=deal.vehicle||'';
+  document.getElementById('e-gross').value=deal.gross||0;
+  document.getElementById('e-type').value=deal.type||'solo';
+  document.getElementById('e-partner').value=deal.partner||'';
+  document.getElementById('e-source').value=deal.source||'floor';
+  document.getElementById('e-spiff').value=deal.spiff||0;
+  document.getElementById('e-delivered').value=deal.delivered||'no';
+  document.getElementById('e-finalized').value=deal.finalized||'no';
+  const tradeIsText=deal.trade&&deal.trade!=='no'&&deal.trade!=='yes';
+  document.getElementById('e-trade').value=(deal.trade&&deal.trade!=='no')?'yes':'no';
+  document.getElementById('e-trade-detail').value=tradeIsText?deal.trade:(deal.trade==='yes'?'':'');
+  document.getElementById('e-comments').value=deal.comments||'';
+  toggleEditPartner();
+  toggleEditTradeDetail();
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function closeEditModal(){
+  document.getElementById('edit-modal').style.display='none';
+  editingId=null;
+}
+
+function toggleEditPartner(){
+  document.getElementById('e-partner-grp').style.opacity=document.getElementById('e-type').value==='split'?'1':'0.4';
+}
+
+async function saveEdit(){
+  if(!editingId)return;
+  const c=document.getElementById('e-customer').value.trim();
+  const v=document.getElementById('e-vehicle').value.trim();
+  if(!c||!v){alert('Customer name and vehicle required.');return;}
+  const original=(cache[vkey()]||[]).find(d=>d.id===editingId);
+  const btn=document.getElementById('btn-save');
+  btn.disabled=true;btn.textContent='Saving...';
+  const deal={
+    ...original,
+    customer:c,
+    date:document.getElementById('e-date').value,
+    stock:document.getElementById('e-stock').value.trim(),
+    dealNum:document.getElementById('e-deal').value.trim(),
+    vehicle:v,
+    gross:parseFloat(document.getElementById('e-gross').value)||0,
+    type:document.getElementById('e-type').value,
+    partner:document.getElementById('e-partner').value.trim(),
+    source:document.getElementById('e-source').value,
+    spiff:parseFloat(document.getElementById('e-spiff').value)||0,
+    delivered:document.getElementById('e-delivered').value,
+    finalized:document.getElementById('e-finalized').value,
+    trade:document.getElementById('e-trade').value==='yes'?(document.getElementById('e-trade-detail').value.trim()||'yes'):'no',
+    comments:document.getElementById('e-comments').value.trim(),
+  };
+  try{
+    setSyncState('syncing');
+    const r=await apiGet({action:'updateDeal',monthKey:vkey(),deal:encodeURIComponent(JSON.stringify(deal))});
+    if(r.success){
+      const idx=(cache[vkey()]||[]).findIndex(d=>d.id===editingId);
+      if(idx!==-1)cache[vkey()][idx]=deal;
+      showToast('Deal updated','ok');setSyncState('synced');
+      closeEditModal();renderAll();
+    }else{showToast('Error: '+(r.error||'unknown'),'err');setSyncState('error');}
+  }catch(e){showToast('Network error — check connection','err');setSyncState('error');console.error(e);}
+  btn.disabled=false;btn.textContent='Save Changes';
+}
+
+function switchTab(tab){
+  ['dashboard','log','deals','history','projections'].forEach((t,i)=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+    document.querySelectorAll('.tab')[i].classList.toggle('active',t===tab);
+  });
+  if(tab==='projections')renderProjections();
+  if(tab==='history')renderHistory();
+}
+
+function renderAll(){renderDashboard();renderLog();}
+
+updateLabel();
+document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+loadAndRender();
+</script>
+</body>
+</html>
